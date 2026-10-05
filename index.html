@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Driver QR Scanner</title>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Outfit:wght@300;400;500;600;700&family=DM+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
     <style>
@@ -1586,8 +1587,21 @@ function goToVerify() {
     setTimeout(() => speak(L.verifyPrompt, code), 400);
 }
 
+// let photoStream = null;
+// let driverPhotoUrl = '';
 let photoStream = null;
 let driverPhotoUrl = '';
+let faceModelLoaded = false;
+let faceModelLoading = null;
+
+function loadFaceModel() {
+    if (faceModelLoaded) return Promise.resolve();
+    if (faceModelLoading) return faceModelLoading;
+    faceModelLoading = faceapi.nets.tinyFaceDetector.loadFromUri(
+        'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js-models@master/tiny_face_detector'
+    ).then(() => { faceModelLoaded = true; });
+    return faceModelLoading;
+}
 
 function goToPhotoScreen() {
     goToScreen(2);
@@ -1596,8 +1610,8 @@ function goToPhotoScreen() {
     document.getElementById('photo-status').className = 'verify-status';
     document.getElementById('photo-video').style.display = '';
     initializeCamera();
+    loadFaceModel();
 }
-
 function initializeCamera() {
     if (photoStream) {
         photoStream.getTracks().forEach(t => t.stop());
@@ -1616,12 +1630,58 @@ function initializeCamera() {
         });
 }
 
-function capturePhoto() {
+async function capturePhoto() {
     const video  = document.getElementById('photo-video');
     const canvas = document.getElementById('photo-canvas');
     canvas.width  = video.videoWidth;
     canvas.height = video.videoHeight;
     canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    const statusEl = document.getElementById('photo-status');
+    statusEl.className = 'verify-status loading';
+    document.getElementById('photo-status-text').textContent = 'Checking photo…';
+
+    try {
+        await loadFaceModel();
+        const detection = await faceapi.detectSingleFace(canvas, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.5 }));
+
+        if (!detection) {
+            statusEl.className = 'verify-status error';
+            document.getElementById('photo-status-text').textContent = '✕ No face detected. Please center your face and retake.';
+            return;
+        }
+
+        const box = detection.box;
+        const frameArea = canvas.width * canvas.height;
+        const faceArea  = box.width * box.height;
+        const faceRatio = faceArea / frameArea;
+        const centerX = box.x + box.width / 2;
+        const centerY = box.y + box.height / 2;
+        const isCentered = Math.abs(centerX - canvas.width / 2) < canvas.width * 0.2
+                         && Math.abs(centerY - canvas.height / 2) < canvas.height * 0.25;
+
+        if (faceRatio < 0.06) {
+            statusEl.className = 'verify-status error';
+            document.getElementById('photo-status-text').textContent = '✕ Face too far. Move closer and retake.';
+            return;
+        }
+        if (faceRatio > 0.65) {
+            statusEl.className = 'verify-status error';
+            document.getElementById('photo-status-text').textContent = '✕ Face too close. Move back slightly and retake.';
+            return;
+        }
+        if (!isCentered) {
+            statusEl.className = 'verify-status error';
+            document.getElementById('photo-status-text').textContent = '✕ Face not centered. Align within the circle and retake.';
+            return;
+        }
+    } catch (err) {
+        console.error('Face detection error:', err);
+        statusEl.className = 'verify-status error';
+        document.getElementById('photo-status-text').textContent = '✕ Could not verify photo. Please retake.';
+        return;
+    }
+
     const base64Image = canvas.toDataURL('image/jpeg', 0.85);
 
     if (photoStream) {
@@ -1632,7 +1692,6 @@ function capturePhoto() {
     document.getElementById('btn-capture-photo').style.display = 'none';
     document.getElementById('btn-retake-photo').style.display = '';
 
-    const statusEl = document.getElementById('photo-status');
     statusEl.className = 'verify-status loading';
     document.getElementById('photo-status-text').textContent = 'Uploading photo…';
 
