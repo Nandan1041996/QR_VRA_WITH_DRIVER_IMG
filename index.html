@@ -1598,8 +1598,13 @@ function loadFaceModel() {
     if (faceModelLoaded) return Promise.resolve();
     if (faceModelLoading) return faceModelLoading;
     faceModelLoading = faceapi.nets.tinyFaceDetector.loadFromUri(
-        'https://justadudewhohacks.github.io/face-api.js/models'
-    ).then(() => { faceModelLoaded = true; });
+        'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights'
+    ).then(() => { faceModelLoaded = true; })
+     .catch(err => {
+        console.error('Face model load failed:', err);
+        faceModelLoaded = false;
+        faceModelLoading = null;
+     });
     return faceModelLoading;
 }
 
