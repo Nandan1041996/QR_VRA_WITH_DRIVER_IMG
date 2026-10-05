@@ -1598,24 +1598,34 @@ function loadFaceModel() {
     if (faceModelLoaded) return Promise.resolve();
     if (faceModelLoading) return faceModelLoading;
     faceModelLoading = faceapi.nets.tinyFaceDetector.loadFromUri(
-    'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights'
-    ).then(() => { faceModelLoaded = true; })
-     .catch(err => {
+        'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights'
+    ).then(() => {
+        const warmupCanvas = document.createElement('canvas');
+        warmupCanvas.width = 160;
+        warmupCanvas.height = 120;
+        return faceapi.detectSingleFace(warmupCanvas, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.3 }));
+    }).then(() => {
+        faceModelLoaded = true;
+    }).catch(err => {
         console.error('Face model load failed:', err);
         faceModelLoaded = false;
         faceModelLoading = null;
-     });
+    });
     return faceModelLoading;
 }
 
 function goToPhotoScreen() {
     goToScreen(2);
-    document.getElementById('btn-capture-photo').style.display = '';
+    document.getElementById('btn-capture-photo').style.display = 'none';
     document.getElementById('btn-retake-photo').style.display = 'none';
-    document.getElementById('photo-status').className = 'verify-status';
+    document.getElementById('photo-status').className = 'verify-status loading';
+    document.getElementById('photo-status-text').textContent = 'Preparing camera…';
     document.getElementById('photo-video').style.display = '';
     initializeCamera();
-    loadFaceModel();
+    loadFaceModel().then(() => {
+        document.getElementById('photo-status').className = 'verify-status';
+        document.getElementById('btn-capture-photo').style.display = '';
+    });
 }
 function initializeCamera() {
     if (photoStream) {
