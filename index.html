@@ -1633,6 +1633,14 @@ function initializeCamera() {
 async function capturePhoto() {
     const video  = document.getElementById('photo-video');
     const canvas = document.getElementById('photo-canvas');
+
+    if (!video.videoWidth || !video.videoHeight) {
+        const statusEl = document.getElementById('photo-status');
+        statusEl.className = 'verify-status error';
+        document.getElementById('photo-status-text').textContent = '✕ Camera not ready yet. Please wait a moment and try again.';
+        return;
+    }
+
     canvas.width  = video.videoWidth;
     canvas.height = video.videoHeight;
     canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -1644,6 +1652,7 @@ async function capturePhoto() {
     try {
         await loadFaceModel();
         const detection = await faceapi.detectSingleFace(canvas, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.5 }));
+        console.log('Face model loaded:', faceModelLoaded, '| Canvas size:', canvas.width, canvas.height, '| Detection result:', detection);
 
         if (!detection) {
             statusEl.className = 'verify-status error';
