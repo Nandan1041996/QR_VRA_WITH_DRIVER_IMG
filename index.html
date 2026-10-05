@@ -1598,7 +1598,7 @@ function loadFaceModel() {
     if (faceModelLoaded) return Promise.resolve();
     if (faceModelLoading) return faceModelLoading;
     faceModelLoading = faceapi.nets.tinyFaceDetector.loadFromUri(
-        'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights'
+    'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights'
     ).then(() => { faceModelLoaded = true; })
      .catch(err => {
         console.error('Face model load failed:', err);
