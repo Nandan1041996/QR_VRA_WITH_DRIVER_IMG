@@ -1098,7 +1098,7 @@
                         </mask>
                     </defs>
                     <rect width="300" height="300" fill="rgba(44,36,32,0.45)" mask="url(#face-mask)"/>
-                    <ellipse cx="150" cy="150" rx="95" ry="120" fill="none" stroke="var(--terracotta)" stroke-width="3"/>
+                      <ellipse id="face-guide-ring" cx="150" cy="150" rx="95" ry="120" fill="none" stroke="var(--terracotta)" stroke-width="3"/>
                 </svg>
                 <canvas id="photo-canvas" style="display:none;"></canvas>
             </div>
@@ -1614,6 +1614,66 @@ function loadFaceModel() {
     return faceModelLoading;
 }
 
+let liveDetectionInterval = null;
+let consecutiveGoodFrames = 0;
+const REQUIRED_CONSECUTIVE_FRAMES = 4;
+
+function startLiveFaceDetection() {
+    stopLiveFaceDetection();
+    consecutiveGoodFrames = 0;
+    document.getElementById('btn-capture-photo').style.display = 'none';
+
+    liveDetectionInterval = setInterval(async () => {
+        const video = document.getElementById('photo-video');
+        if (!video.videoWidth || !video.videoHeight) return;
+
+        try {
+            const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.3 }));
+            const ring = document.getElementById('face-guide-ring');
+
+            if (detection) {
+                const box = detection.box;
+                const faceRatio = (box.width * box.height) / (video.videoWidth * video.videoHeight);
+                const centerX = box.x + box.width / 2;
+                const centerY = box.y + box.height / 2;
+                const isCentered = Math.abs(centerX - video.videoWidth / 2) < video.videoWidth * 0.3
+                                 && Math.abs(centerY - video.videoHeight / 2) < video.videoHeight * 0.3;
+                const goodSize = faceRatio > 0.03 && faceRatio < 0.75;
+
+                if (isCentered && goodSize) {
+                    consecutiveGoodFrames++;
+                    ring.setAttribute('stroke', '#6b8c7a');
+                    document.getElementById('photo-status-text').textContent = 'Hold still…';
+                } else {
+                    consecutiveGoodFrames = 0;
+                    ring.setAttribute('stroke', '#c9a84c');
+                    document.getElementById('photo-status-text').textContent = goodSize ? 'Center your face in the circle' : 'Adjust distance from camera';
+                }
+            } else {
+                consecutiveGoodFrames = 0;
+                document.getElementById('face-guide-ring').setAttribute('stroke', 'var(--terracotta)');
+                document.getElementById('photo-status-text').textContent = 'Align your face in the circle…';
+            }
+
+            if (consecutiveGoodFrames >= REQUIRED_CONSECUTIVE_FRAMES) {
+                stopLiveFaceDetection();
+                document.getElementById('photo-status').className = 'verify-status success';
+                document.getElementById('photo-status-text').textContent = '✓ Face detected — tap Capture';
+                document.getElementById('btn-capture-photo').style.display = '';
+            }
+        } catch (err) {
+            console.error('Live detection error:', err);
+        }
+    }, 350);
+}
+
+function stopLiveFaceDetection() {
+    if (liveDetectionInterval) {
+        clearInterval(liveDetectionInterval);
+        liveDetectionInterval = null;
+    }
+}
+
 function goToPhotoScreen() {
     goToScreen(2);
     document.getElementById('btn-capture-photo').style.display = 'none';
@@ -1623,8 +1683,9 @@ function goToPhotoScreen() {
     document.getElementById('photo-video').style.display = '';
     initializeCamera();
     loadFaceModel().then(() => {
-        document.getElementById('photo-status').className = 'verify-status';
-        document.getElementById('btn-capture-photo').style.display = '';
+        document.getElementById('photo-status').className = 'verify-status loading';
+        document.getElementById('photo-status-text').textContent = 'Align your face in the circle…';
+        startLiveFaceDetection();
     });
 }
 function initializeCamera() {
@@ -1646,6 +1707,8 @@ function initializeCamera() {
 }
 
 async function capturePhoto() {
+    stopLiveFaceDetection();
+
     const video  = document.getElementById('photo-video');
     const canvas = document.getElementById('photo-canvas');
 
@@ -1653,6 +1716,7 @@ async function capturePhoto() {
         const statusEl = document.getElementById('photo-status');
         statusEl.className = 'verify-status error';
         document.getElementById('photo-status-text').textContent = '✕ Camera not ready yet. Please wait a moment and try again.';
+        startLiveFaceDetection();
         return;
     }
 
@@ -1661,56 +1725,6 @@ async function capturePhoto() {
     canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
 
     const statusEl = document.getElementById('photo-status');
-    statusEl.className = 'verify-status loading';
-    document.getElementById('photo-status-text').textContent = 'Checking photo…';
-
-    try {
-        await loadFaceModel();
-        const detection = await faceapi.detectSingleFace(canvas, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.3 }));
-        console.log('Face model loaded:', faceModelLoaded, '| Canvas size:', canvas.width, canvas.height, '| Detection result:', detection);
-
-        if (!detection) {
-            statusEl.className = 'verify-status error';
-            document.getElementById('photo-status-text').textContent = '✕ No face detected. Please center your face and retake.';
-            document.getElementById('btn-retake-photo').style.display = '';
-            return;
-        }
-
-        const box = detection.box;
-        const frameArea = canvas.width * canvas.height;
-        const faceArea  = box.width * box.height;
-        const faceRatio = faceArea / frameArea;
-        const centerX = box.x + box.width / 2;
-        const centerY = box.y + box.height / 2;
-                const isCentered = Math.abs(centerX - canvas.width / 2) < canvas.width * 0.35
-                         && Math.abs(centerY - canvas.height / 2) < canvas.height * 0.35;
-
-        if (faceRatio < 0.03) {
-            statusEl.className = 'verify-status error';
-            document.getElementById('photo-status-text').textContent = '✕ Face too far. Move closer and retake.';
-            document.getElementById('btn-retake-photo').style.display = '';
-            return;
-        }
-        if (faceRatio > 0.75) {
-            statusEl.className = 'verify-status error';
-            document.getElementById('photo-status-text').textContent = '✕ Face too close. Move back slightly and retake.';
-            document.getElementById('btn-retake-photo').style.display = '';
-            return;
-        }
-        if (!isCentered) {
-            statusEl.className = 'verify-status error';
-            document.getElementById('photo-status-text').textContent = '✕ Face not centered. Align within the circle and retake.';
-            document.getElementById('btn-retake-photo').style.display = '';
-            return;
-        }
-    } catch (err) {
-        console.error('Face detection error:', err);
-        statusEl.className = 'verify-status error';
-        document.getElementById('photo-status-text').textContent = '✕ Could not verify photo. Please retake.';
-        document.getElementById('btn-retake-photo').style.display = '';
-        return;
-    }
-
     const base64Image = canvas.toDataURL('image/jpeg', 0.85);
 
     if (photoStream) {
@@ -1752,10 +1766,12 @@ async function capturePhoto() {
 function retakePhoto() {
     driverPhotoUrl = '';
     document.getElementById('photo-video').style.display = '';
-    document.getElementById('btn-capture-photo').style.display = '';
+    document.getElementById('btn-capture-photo').style.display = 'none';
     document.getElementById('btn-retake-photo').style.display = 'none';
-    document.getElementById('photo-status').className = 'verify-status';
+    document.getElementById('photo-status').className = 'verify-status loading';
+    document.getElementById('photo-status-text').textContent = 'Align your face in the circle…';
     initializeCamera();
+    startLiveFaceDetection();
 }
 
 function onDLBlur() {
