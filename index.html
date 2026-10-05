@@ -1598,7 +1598,7 @@ function loadFaceModel() {
     if (faceModelLoaded) return Promise.resolve();
     if (faceModelLoading) return faceModelLoading;
     faceModelLoading = faceapi.nets.tinyFaceDetector.loadFromUri(
-        'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js-models@master/tiny_face_detector'
+        'https://justadudewhohacks.github.io/face-api.js/models'
     ).then(() => { faceModelLoaded = true; });
     return faceModelLoading;
 }
@@ -1651,7 +1651,7 @@ async function capturePhoto() {
 
     try {
         await loadFaceModel();
-        const detection = await faceapi.detectSingleFace(canvas, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.5 }));
+        const detection = await faceapi.detectSingleFace(canvas, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.3 }));
         console.log('Face model loaded:', faceModelLoaded, '| Canvas size:', canvas.width, canvas.height, '| Detection result:', detection);
 
         if (!detection) {
