@@ -1640,10 +1640,12 @@ function startLiveFaceDetection() {
                                  && Math.abs(centerY - video.videoHeight / 2) < video.videoHeight * 0.3;
                 const goodSize = faceRatio > 0.03 && faceRatio < 0.75;
 
-                if (isCentered && goodSize) {
+                  if (isCentered && goodSize) {
                     consecutiveGoodFrames++;
                     ring.setAttribute('stroke', '#6b8c7a');
-                    document.getElementById('photo-status-text').textContent = 'Hold still…';
+                    if (consecutiveGoodFrames < REQUIRED_CONSECUTIVE_FRAMES) {
+                        document.getElementById('photo-status-text').textContent = 'Hold still…';
+                    }
                 } else {
                     consecutiveGoodFrames = 0;
                     ring.setAttribute('stroke', '#c9a84c');
@@ -1656,10 +1658,11 @@ function startLiveFaceDetection() {
             }
 
             if (consecutiveGoodFrames >= REQUIRED_CONSECUTIVE_FRAMES) {
-                stopLiveFaceDetection();
                 document.getElementById('photo-status').className = 'verify-status success';
                 document.getElementById('photo-status-text').textContent = '✓ Face detected — tap Capture';
                 document.getElementById('btn-capture-photo').style.display = '';
+            } else {
+                document.getElementById('btn-capture-photo').style.display = 'none';
             }
         } catch (err) {
             console.error('Live detection error:', err);
