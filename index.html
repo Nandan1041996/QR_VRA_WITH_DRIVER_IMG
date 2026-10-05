@@ -1648,6 +1648,7 @@ async function capturePhoto() {
         if (!detection) {
             statusEl.className = 'verify-status error';
             document.getElementById('photo-status-text').textContent = '✕ No face detected. Please center your face and retake.';
+            document.getElementById('btn-retake-photo').style.display = '';
             return;
         }
 
@@ -1657,28 +1658,32 @@ async function capturePhoto() {
         const faceRatio = faceArea / frameArea;
         const centerX = box.x + box.width / 2;
         const centerY = box.y + box.height / 2;
-        const isCentered = Math.abs(centerX - canvas.width / 2) < canvas.width * 0.2
-                         && Math.abs(centerY - canvas.height / 2) < canvas.height * 0.25;
+                const isCentered = Math.abs(centerX - canvas.width / 2) < canvas.width * 0.35
+                         && Math.abs(centerY - canvas.height / 2) < canvas.height * 0.35;
 
-        if (faceRatio < 0.06) {
+        if (faceRatio < 0.03) {
             statusEl.className = 'verify-status error';
             document.getElementById('photo-status-text').textContent = '✕ Face too far. Move closer and retake.';
+            document.getElementById('btn-retake-photo').style.display = '';
             return;
         }
-        if (faceRatio > 0.65) {
+        if (faceRatio > 0.75) {
             statusEl.className = 'verify-status error';
             document.getElementById('photo-status-text').textContent = '✕ Face too close. Move back slightly and retake.';
+            document.getElementById('btn-retake-photo').style.display = '';
             return;
         }
         if (!isCentered) {
             statusEl.className = 'verify-status error';
             document.getElementById('photo-status-text').textContent = '✕ Face not centered. Align within the circle and retake.';
+            document.getElementById('btn-retake-photo').style.display = '';
             return;
         }
     } catch (err) {
         console.error('Face detection error:', err);
         statusEl.className = 'verify-status error';
         document.getElementById('photo-status-text').textContent = '✕ Could not verify photo. Please retake.';
+        document.getElementById('btn-retake-photo').style.display = '';
         return;
     }
 
