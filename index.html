@@ -1168,7 +1168,7 @@
                         <div style="font-size:0.85rem; color:var(--ink-muted); margin-top:6px;">Point the scanner at the QR code and press the trigger</div>
                     </div>
                 </div>
-                <input type="text" id="gun-scan-input" autocomplete="off" style="position:absolute; opacity:0; height:1px; width:1px; pointer-events:none;">
+                <input type="text" id="gun-scan-input" autocomplete="off" autofocus style="width:90%; max-width:280px; margin:16px auto 0; display:block; padding:12px 16px; border:1.5px solid rgba(196,181,173,0.5); border-radius:var(--radius-sm); font-family:'DM Mono',monospace; font-size:0.95rem; text-align:center; background:rgba(255,255,255,0.65);" placeholder="Scan QR here…">
                 <div class="scan-hint">
                     <span class="tag">TIP</span>
                     <span id="scan-hint-text">Hold the QR code steady and pull the trigger</span>
@@ -1929,12 +1929,6 @@ function goToScannerScreen() {
     initializeScanner();
 }
 
-// function initializeScanner() {
-//     if (html5Scanner) { try { html5Scanner.clear(); } catch(e) {} }
-//     html5Scanner = new Html5QrcodeScanner("reader", { fps:10, qrbox:{width:240, height:240} }, false);
-//     html5Scanner.render(onScanSuccess, () => {});
-// }
-
 let gunRefocusInterval = null;
 
 function initializeScanner() {
@@ -1953,6 +1947,7 @@ function initializeScanner() {
 }
 
 function handleGunInput(e) {
+    console.log('Key event:', e.key, '| Value so far:', e.target.value);
     if (e.key === 'Enter') {
         const scannedText = e.target.value.trim();
         if (scannedText.length > 0) {
