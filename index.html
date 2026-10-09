@@ -961,6 +961,45 @@
             .token-modal { padding: 36px 24px 28px; }
             .token-number { font-size: 1.6rem; }
         }
+
+                /* ══ VIRTUAL KEYBOARD ══ */
+        #vk {
+            display: none;
+            position: fixed;
+            left: 0; right: 0; bottom: 0;
+            z-index: 9000;
+            background: rgba(250,247,242,0.98);
+            border-top: 1.5px solid rgba(196,181,173,0.6);
+            box-shadow: 0 -12px 32px rgba(44,36,32,0.18);
+            padding: 12px 14px 16px;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+        #vk.show { display: block; animation: slideUp 0.25s ease; }
+        .vk-inner { max-width: 760px; margin: 0 auto; }
+        .vk-row { display: flex; gap: 8px; margin-bottom: 8px; justify-content: center; }
+        .vk-key {
+            flex: 1 1 0;
+            max-width: 64px;
+            min-height: 54px;
+            border: 1.5px solid rgba(196,181,173,0.6);
+            border-radius: 10px;
+            background: #fff;
+            font-family: 'DM Mono', monospace;
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--ink);
+            cursor: pointer;
+            transition: background 0.1s, transform 0.1s;
+        }
+        .vk-key:active { background: rgba(193,98,74,0.18); transform: scale(0.96); }
+        .vk-key.action { background: rgba(196,181,173,0.3); font-family: 'Outfit', sans-serif; font-size: 0.95rem; }
+        .vk-key.wide { max-width: none; }
+        .vk-key.done { background: linear-gradient(135deg, var(--terracotta), var(--terra-dark)); color: #fff; border-color: transparent; font-size: 1.05rem; }
+        #vk-numeric .vk-key { max-width: 120px; min-height: 62px; font-size: 1.5rem; }
+        #vk-numeric .vk-key.wide { max-width: none; }
     </style>
 </head>
 <body>
@@ -1001,6 +1040,14 @@
         <button class="btn-primary" id="btn-token-ok" onclick="closeTokenPopup()" style="margin-top:0;">
             <span id="btn-token-ok-text">Proceed → Scan Next Vehicle</span>
         </button>
+    </div>
+</div>
+
+<!-- ══ VIRTUAL KEYBOARD ══ -->
+<div id="vk">
+    <div class="vk-inner">
+        <div id="vk-alnum"></div>
+        <div id="vk-numeric" style="display:none;"></div>
     </div>
 </div>
 
@@ -1129,6 +1176,8 @@
                     type="text" id="dl-number" class="field-input"
                     placeholder="15 to 19 characters DL number"
                     maxlength="19"
+                    inputmode="none"
+                    onfocus="vkOpen('dl')"
                     oninput="formatDL(this)"
                     onblur="onDLBlur()"
                     autocomplete="off" autocorrect="off" spellcheck="false"
@@ -1142,7 +1191,8 @@
                 <div class="field-label" id="lbl-dob">
                     Date of Birth <span class="field-req">*</span>
                 </div>
-                <input type="date" id="dob" class="field-input" onchange="validateDOB()">
+                <input type="text" id="dob-text" class="field-input" placeholder="DD/MM/YYYY" readonly inputmode="none" autocomplete="off" onfocus="vkOpen('dob')">
+                <input type="date" id="dob" style="display:none;">
                 <div class="field-error" id="dob-error"></div>
             </div>
 
@@ -1151,7 +1201,7 @@
                 <span id="verify-status-text">Verifying…</span>
             </div>
 
-            <button class="btn-primary" id="btn-verify" onclick="verifyDriver()">
+            <button class="btn-primary" id="btn-verify" onclick="vkVerifyClick()">
                 <span id="btn-verify-text">Verify &amp; Continue →</span>
             </button>
         </div>
@@ -1168,7 +1218,7 @@
                         <div style="font-size:0.85rem; color:var(--ink-muted); margin-top:6px;">Point the scanner at the QR code and press the trigger</div>
                     </div>
                 </div>
-                <input type="text" id="gun-scan-input" autocomplete="off" autofocus style="width:90%; max-width:280px; margin:16px auto 0; display:block; padding:12px 16px; border:1.5px solid rgba(196,181,173,0.5); border-radius:var(--radius-sm); font-family:'DM Mono',monospace; font-size:0.95rem; text-align:center; background:rgba(255,255,255,0.65);" placeholder="Scan QR here…">
+                <input type="text" id="gun-scan-input" inputmode="none" autocomplete="off" autofocus style="width:90%; max-width:280px; margin:16px auto 0; display:block; padding:12px 16px; border:1.5px solid rgba(196,181,173,0.5); border-radius:var(--radius-sm); font-family:'DM Mono',monospace; font-size:0.95rem; text-align:center; background:rgba(255,255,255,0.65);" placeholder="Scan QR here…">
                 <div class="scan-hint">
                     <span class="tag">TIP</span>
                     <span id="scan-hint-text">Hold the QR code steady and pull the trigger</span>
@@ -2129,6 +2179,152 @@ function fullReset() {
     clearTimeout(autoResetTimer);
     clearInterval(countdownInterval);
     window.location.reload();
+}
+
+// ══════════════════════════════════════════════════════
+//  VIRTUAL KEYBOARD (touch kiosk)
+// ══════════════════════════════════════════════════════
+const VK_ALNUM = [
+    ['1','2','3','4','5','6','7','8','9','0'],
+    ['Q','W','E','R','T','Y','U','I','O','P'],
+    ['A','S','D','F','G','H','J','K','L'],
+    ['Z','X','C','V','B','N','M','BACK'],
+    ['CLEAR','DONE']
+];
+const VK_NUM = [
+    ['1','2','3'],
+    ['4','5','6'],
+    ['7','8','9'],
+    ['CLEAR','0','BACK'],
+    ['DONE']
+];
+let vkMode = null;
+let dobDigits = '';
+
+function vkBuild(layout, container, doneLabel) {
+    layout.forEach(row => {
+        const r = document.createElement('div');
+        r.className = 'vk-row';
+        const wide = row.length <= 2;
+        row.forEach(k => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.setAttribute('data-key', k);
+            let cls = 'vk-key';
+            if (k.length > 1) cls += ' action';
+            if (k === 'DONE') cls += ' done';
+            if (wide) cls += ' wide';
+            b.className = cls;
+            b.textContent = k === 'BACK' ? '⌫' : k === 'CLEAR' ? 'Clear' : k === 'DONE' ? doneLabel : k;
+            r.appendChild(b);
+        });
+        container.appendChild(r);
+    });
+}
+
+window.addEventListener('load', function () {
+    vkBuild(VK_ALNUM, document.getElementById('vk-alnum'), 'Next →');
+    vkBuild(VK_NUM, document.getElementById('vk-numeric'), 'Done ✓');
+    const kb = document.getElementById('vk');
+    // keep focus on the input while keys are tapped
+    kb.addEventListener('mousedown', function (e) { e.preventDefault(); });
+    kb.addEventListener('click', function (e) {
+        const b = e.target.closest('.vk-key');
+        if (b) vkPress(b.getAttribute('data-key'));
+    });
+});
+
+function vkOpen(mode) {
+    vkMode = mode;
+    const kb = document.getElementById('vk');
+    document.getElementById('vk-alnum').style.display   = mode === 'dl'  ? '' : 'none';
+    document.getElementById('vk-numeric').style.display = mode === 'dob' ? '' : 'none';
+    kb.classList.add('show');
+    document.body.style.paddingBottom = (kb.offsetHeight + 20) + 'px';
+    const target = document.getElementById(mode === 'dl' ? 'dl-number' : 'dob-text');
+    setTimeout(() => target.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80);
+}
+
+function vkClose() {
+    vkMode = null;
+    document.getElementById('vk').classList.remove('show');
+    document.body.style.paddingBottom = '';
+    const a = document.activeElement;
+    if (a && (a.id === 'dl-number' || a.id === 'dob-text')) a.blur();
+}
+
+function vkPress(key) {
+    if (key === 'DONE') {
+        if (vkMode === 'dl') document.getElementById('dob-text').focus();
+        else vkClose();
+        return;
+    }
+    if (vkMode === 'dl') {
+        const el = document.getElementById('dl-number');
+        if (key === 'BACK') el.value = el.value.slice(0, -1);
+        else if (key === 'CLEAR') el.value = '';
+        else el.value += key;
+        formatDL(el);
+    } else if (vkMode === 'dob') {
+        if (key === 'BACK') dobDigits = dobDigits.slice(0, -1);
+        else if (key === 'CLEAR') dobDigits = '';
+        else if (dobDigits.length < 8) dobDigits += key;
+        vkDobRefresh();
+    }
+}
+
+function vkMirrorDobState() {
+    const src = document.getElementById('dob');
+    const dst = document.getElementById('dob-text');
+    dst.classList.remove('error', 'success');
+    if (src.classList.contains('error')) dst.classList.add('error');
+    else if (src.classList.contains('success')) dst.classList.add('success');
+}
+
+function vkDobRefresh() {
+    const d = dobDigits;
+    let disp = d.substring(0, 2);
+    if (d.length > 2) disp += '/' + d.substring(2, 4);
+    if (d.length > 4) disp += '/' + d.substring(4, 8);
+    document.getElementById('dob-text').value = disp;
+
+    const dobEl = document.getElementById('dob');
+    const err   = document.getElementById('dob-error');
+    dobEl.value = '';
+    dobEl.classList.remove('error', 'success');
+    err.classList.remove('show');
+
+    if (d.length === 8) {
+        const dd = parseInt(d.substring(0, 2), 10);
+        const mm = parseInt(d.substring(2, 4), 10);
+        const yy = parseInt(d.substring(4, 8), 10);
+        const t  = new Date(yy, mm - 1, dd);
+        const ok = yy >= 1900 && t.getFullYear() === yy && t.getMonth() === mm - 1 && t.getDate() === dd;
+        if (ok) {
+            dobEl.value = d.substring(4, 8) + '-' + d.substring(2, 4) + '-' + d.substring(0, 2);
+            validateDOB();
+        } else {
+            err.textContent = 'Please enter a valid date (DD/MM/YYYY).';
+            err.classList.add('show');
+            dobEl.classList.add('error');
+        }
+    }
+    vkMirrorDobState();
+}
+
+function vkVerifyClick() {
+    vkClose();
+    const dobEl = document.getElementById('dob');
+    if (!dobEl.value) {
+        if (dobDigits.length < 8) {
+            const err = document.getElementById('dob-error');
+            err.textContent = 'Please enter your full date of birth (DD/MM/YYYY).';
+            err.classList.add('show');
+            document.getElementById('dob-text').classList.add('error');
+        }
+        return;
+    }
+    verifyDriver();
 }
 </script>
 </body>
