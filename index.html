@@ -1527,7 +1527,8 @@ window.addEventListener('load', () => {
     document.getElementById('dob').max = new Date().toISOString().split('T')[0];
     loadVoices().then(() => {
         // Greeting in Gujarati — uses best available voice
-        speak('To start the entry process, please select your language.', 'en-IN');
+        // speak('To start the entry process, please select your language.', 'en-IN');
+        speak('गेट एंट्री प्रक्रिया शुरू करने के लिए, कृपया अपनी भाषा चुनें।', 'hi-IN');
     });
     goToScreen(1);
 });
