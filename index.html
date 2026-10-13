@@ -1338,7 +1338,7 @@ const LANG_MAP = {
         lblDL:'ડ્રાઇવિંગ લાઇસન્સ નંબર', lblDOB:'જન્મ તારીખ',
         hintDL:'માત્ર અક્ષરો અને સંખ્યા · 15 થી 19 અક્ષરો વચ્ચે',
         btnVerify:'ચકાસો અને આગળ વધો →',
-        scanHint:'કૅમેરાને વાહનના QR કોડ પર લઈ જાઓ',
+        scanHint:'QR કોડને સ્કૅનર સામે સ્થિર રાખો',
         lblVehicle:'વાહન નંબર', btnReset:'આગળ વાહન સ્કૅન કરો',
         verifyPrompt:'કૃપા કરીને તમારો ડ્રાઇવિંગ લાઇસન્સ નંબર દાખલ કરો.',
         dobPrompt:'હવે તમારી જન્મ તારીખ પસંદ કરો.',
@@ -1362,7 +1362,7 @@ const LANG_MAP = {
         lblDL:'ड्राइविंग लाइसेंस नंबर', lblDOB:'जन्म तिथि',
         hintDL:'केवल अक्षर और अंक · 15 से 19 अक्षर के बीच',
         btnVerify:'सत्यापित करें और जारी रखें →',
-        scanHint:'कैमरा वाहन के QR कोड पर ले जाएं',
+        scanHint:'QR कोड को स्कैनर के सामने स्थिर रखें',
         lblVehicle:'वाहन नंबर', btnReset:'अगला वाहन स्कैन करें',
         verifyPrompt:'कृपया अपना ड्राइविंग लाइसेंस नंबर दर्ज करें।',
         dobPrompt:'अब अपनी जन्म तिथि चुनें।',
@@ -1386,7 +1386,7 @@ const LANG_MAP = {
         lblDL:'Driving License Number', lblDOB:'Date of Birth',
         hintDL:'Alphanumeric only · between 15 and 19 characters',
         btnVerify:'Verify & Continue →',
-        scanHint:'Point camera at the vehicle\'s QR code',
+        scanHint:'Hold the QR code steady in front of the scanner',
         lblVehicle:'Vehicle Number', btnReset:'Scan Next Vehicle',
         verifyPrompt:'Please enter your driving license number.',
         dobPrompt:'Now select your date of birth.',
@@ -1527,7 +1527,7 @@ window.addEventListener('load', () => {
     document.getElementById('dob').max = new Date().toISOString().split('T')[0];
     loadVoices().then(() => {
         // Greeting in Gujarati — uses best available voice
-        speak('ડ્રાઇવર QR સ્કૅનર. ભાષા પસંદ કરો.', 'gu-IN');
+        speak('To start the entry process, please select your language.', 'en-IN');
     });
     goToScreen(1);
 });
@@ -2040,6 +2040,11 @@ function goToScannerScreen() {
     document.getElementById('scan-hint-text').textContent   = L.scanHint;
     document.getElementById('lbl-vehicle').textContent      = L.lblVehicle;
     document.getElementById('btn-reset-text').textContent   = L.btnReset;
+    setTimeout(() => {
+        if (document.getElementById('scanner-view').style.display !== 'none') {
+            speak(L.scanHint, selectedLang?.code || 'en-IN');
+        }
+    }, 3000);
     initializeScanner();
 }
 
