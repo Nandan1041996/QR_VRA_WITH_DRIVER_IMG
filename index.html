@@ -1027,6 +1027,9 @@
         .vk-key.done { background: linear-gradient(135deg, var(--terracotta), var(--terra-dark)); color: #fff; border-color: transparent; font-size: 1.05rem; }
         #vk-numeric .vk-key { max-width: 120px; min-height: 62px; font-size: 1.5rem; }
         #vk-numeric .vk-key.wide { max-width: none; }
+
+        /* Auto-capture: manual photo buttons are never shown */
+        #btn-capture-photo, #btn-retake-photo { display: none !important; }
     </style>
 </head>
 <body>
@@ -1527,7 +1530,6 @@ window.addEventListener('load', () => {
     document.getElementById('dob').max = new Date().toISOString().split('T')[0];
     loadVoices().then(() => {
         // Greeting in Gujarati — uses best available voice
-        // speak('To start the entry process, please select your language.', 'en-IN');
         speak('गेट एंट्री प्रक्रिया शुरू करने के लिए, कृपया अपनी भाषा चुनें।', 'hi-IN');
     });
     goToScreen(1);
@@ -1732,10 +1734,12 @@ function loadFaceModel() {
 let liveDetectionInterval = null;
 let consecutiveGoodFrames = 0;
 const REQUIRED_CONSECUTIVE_FRAMES = 4;
+let autoCaptureFired = false;
 
 function startLiveFaceDetection() {
     stopLiveFaceDetection();
     consecutiveGoodFrames = 0;
+    autoCaptureFired = false;
     document.getElementById('btn-capture-photo').style.display = 'none';
 
     liveDetectionInterval = setInterval(async () => {
@@ -1744,6 +1748,7 @@ function startLiveFaceDetection() {
 
         try {
             const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.3 }));
+            if (autoCaptureFired) return;
             const ring = document.getElementById('face-guide-ring');
 
             if (detection) {
@@ -1773,11 +1778,10 @@ function startLiveFaceDetection() {
             }
 
             if (consecutiveGoodFrames >= REQUIRED_CONSECUTIVE_FRAMES) {
-                document.getElementById('photo-status').className = 'verify-status success';
-                document.getElementById('photo-status-text').textContent = '✓ Face detected — tap Capture';
-                document.getElementById('btn-capture-photo').style.display = '';
-            } else {
-                document.getElementById('btn-capture-photo').style.display = 'none';
+                if (!autoCaptureFired) {
+                    autoCaptureFired = true;
+                    capturePhoto();
+                }
             }
         } catch (err) {
             console.error('Live detection error:', err);
@@ -1870,14 +1874,15 @@ async function capturePhoto() {
             setTimeout(() => goToVerify(), 900);
         } else {
             statusEl.className = 'verify-status error';
-            document.getElementById('photo-status-text').textContent = '✕ ' + (data.message || 'Upload failed. Please retake.');
-            document.getElementById('btn-retake-photo').style.display = '';
+            document.getElementById('photo-status-text').textContent = '✕ ' + (data.message || 'Upload failed.') + ' Retrying…';
+            setTimeout(() => retakePhoto(), 2500);
         }
     })
     .catch(err => {
         console.warn('Photo upload error:', err);
         statusEl.className = 'verify-status error';
-        document.getElementById('photo-status-text').textContent = '✕ Upload failed. Please retake.';
+        document.getElementById('photo-status-text').textContent = '✕ Upload failed. Retrying…';
+        setTimeout(() => retakePhoto(), 2500);
     });
 }
 
